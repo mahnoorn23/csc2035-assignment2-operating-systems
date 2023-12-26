@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
     return munit_suite_main(&suite, NULL, argc, argv);
 }
 
-void set_test_job(job_t* job, pid_t pid, unsigned int id, 
+static void set_test_job(job_t* job, pid_t pid, unsigned int id, 
     unsigned int priority, int label_idx) {
     job->pid = pid;
     job->id = id;
@@ -80,25 +80,24 @@ void set_test_job(job_t* job, pid_t pid, unsigned int id,
     (void) snprintf(job->label, MAX_NAME_SIZE, "%s", label);
 }
 
-bool equal_jobs(job_t* j1, job_t* j2) {
+static bool equal_jobs(job_t* j1, job_t* j2) {
     return j1->pid == j2->pid && j1->id == j2->id 
             && j1->priority == j2->priority
             && !strncmp(j1->label, j2->label, MAX_NAME_SIZE);
 }
 
-void assert_init_job(job_t* job) {
+static void assert_init_job(job_t* job) {
     assert_not_null(job);
     assert_int(job->pid, ==, 0);
     assert_uint(job->id, ==, 0);
     assert_uint(job->priority, ==, 0);
     
-    for (int i = 0; i < MAX_NAME_SIZE - 1; i++)
-        assert_char(job->label[i], ==, '*');
+    assert_int(strncmp(job->label, PAD_STRING, MAX_NAME_SIZE), ==, 0);
         
     assert_char(job->label[MAX_NAME_SIZE - 1], ==, '\0');
 }
 
-void assert_job_equalities(job_t* j1, job_t* j2) {
+static void assert_job_equalities(job_t* j1, job_t* j2) {
     assert_true(job_is_equal(j1, j1));
     assert_true(job_is_equal(j2, j2));
     assert_true(job_is_equal(j1, j2));
@@ -128,8 +127,8 @@ void assert_job_equalities(job_t* j1, job_t* j2) {
     assert_true(job_is_equal(j1, j2));
 }
 
-void assert_valid_job(job_t* job, pid_t expected_pid, unsigned int expected_id, 
-    unsigned int expected_priority, int label_idx) {
+static void assert_valid_job(job_t* job, pid_t expected_pid, 
+    unsigned int expected_id, unsigned int expected_priority, int label_idx) {
     assert_not_null(job);
     assert_int(job->pid, ==, expected_pid);
     assert_uint(job->id, ==, expected_id);
@@ -256,6 +255,62 @@ MunitResult test_job_copy_identity(const MunitParameter params[],
             __LINE__ + 1,  "assert_valid_job", i);
         assert_valid_job(cpy, pid, i, i + 1, i);
     }      
+    
+    return MUNIT_OK;
+}
+
+MunitResult test_job_copy_badlabel_stack(const MunitParameter params[], 
+    void* fixture) {
+    job_t src;
+    set_test_job(&src, 1, 0, 1, 1);  // label length is correct
+    
+    assert_int(strnlen(src.label, MAX_NAME_SIZE), ==, MAX_NAME_SIZE - 1);
+    
+    src.label[MAX_NAME_SIZE - 2] = '\0'; // short label
+    
+    assert_int(strnlen(src.label, MAX_NAME_SIZE), ==, MAX_NAME_SIZE - 2);
+
+    job_t dst;
+    
+    assert_null(job_copy(&src, &dst));
+    
+    src.label[0] = '\0';    // empty label
+
+    assert_int(strnlen(src.label, MAX_NAME_SIZE), ==, 0);
+    
+    assert_null(job_copy(&src, &dst));
+    
+    return MUNIT_OK;
+}
+
+MunitResult test_job_copy_badlabel_heap(const MunitParameter params[], 
+    void* fixture) {
+    job_t src;
+    set_test_job(&src, 1, 0, 1, 1);  // label length is correct
+    
+    assert_int(strnlen(src.label, MAX_NAME_SIZE), ==, MAX_NAME_SIZE - 1);
+    
+    src.label[MAX_NAME_SIZE - 2] = '\0'; // short label
+
+    assert_int(strnlen(src.label, MAX_NAME_SIZE), ==, MAX_NAME_SIZE - 2);
+
+    assert_null(job_copy(&src, NULL)); // if result is not null, terminates
+    
+    src.label[0] = '\0';    // empty label
+
+    assert_int(strnlen(src.label, MAX_NAME_SIZE), ==, 0);
+
+    assert_null(job_copy(&src, NULL));
+    
+    // revert to good label
+    src.label[0] = expected_label[1][0];
+    src.label[MAX_NAME_SIZE - 2] = expected_label[1][MAX_NAME_SIZE - 2];
+    
+    job_t* cpy = job_copy(&src, NULL);
+    
+    assert_true(equal_jobs(&src, cpy));
+    
+    free(cpy);
     
     return MUNIT_OK;
 }
@@ -461,8 +516,7 @@ MunitResult test_job_to_str_stack(const MunitParameter params[],
 
 }
 
-MunitResult test_job_to_str_heap(const MunitParameter params[], 
-    void* fixture) {
+MunitResult test_job_to_str_heap(const MunitParameter params[], void* fixture) {
     job_t job;
     
     for (int i = 0; i < TEST_LABELS; i++) {
@@ -477,6 +531,195 @@ MunitResult test_job_to_str_heap(const MunitParameter params[],
     return MUNIT_OK;
 
 }
+
+MunitResult test_job_to_str_err_stack(const MunitParameter params[], 
+    void* fixture) {
+    job_t job;
+    char str[JOB_STR_SIZE];
+    
+    set_test_job(&job, 1, 0, 1, 1);
+    assert_int(strnlen(job.label, MAX_NAME_SIZE), ==, MAX_NAME_SIZE - 1);
+
+    job.label[MAX_NAME_SIZE - 2] = '\0';
+    assert_int(strnlen(job.label, MAX_NAME_SIZE), ==, MAX_NAME_SIZE - 2);
+    assert_null(job_to_str(&job, str));
+
+    job.label[0] = '\0';
+    assert_int(strnlen(job.label, MAX_NAME_SIZE), ==, 0);
+    assert_null(job_to_str(&job, str));
+
+    return MUNIT_OK;
+}
+
+MunitResult test_job_to_str_err_heap(const MunitParameter params[], 
+    void* fixture) {
+    job_t job;
+    
+    set_test_job(&job, 1, 0, 1, 0);
+    assert_int(strnlen(job.label, MAX_NAME_SIZE), ==, MAX_NAME_SIZE - 1);
+
+    job.label[MAX_NAME_SIZE - 2] = '\0';
+    assert_int(strnlen(job.label, MAX_NAME_SIZE), ==, MAX_NAME_SIZE - 2);
+    assert_null(job_to_str(&job, NULL));
+
+    job.label[0] = '\0';
+    assert_int(strnlen(job.label, MAX_NAME_SIZE), ==, 0);
+    assert_null(job_to_str(&job, NULL));
+    
+    // good label
+    job.label[0] = expected_label[0][0];
+    job.label[MAX_NAME_SIZE - 2] = expected_label[0][MAX_NAME_SIZE - 2];
+    assert_int(strnlen(job.label, MAX_NAME_SIZE), ==, MAX_NAME_SIZE - 1);
+    
+    char* str = job_to_str(&job, NULL);
+    
+    assert_string_equal(str, job_strings[0]);
+
+    return MUNIT_OK;
+
+}
+
+MunitResult test_job_to_str_null(const MunitParameter params[], void* fixture) {
+    char str[JOB_STR_SIZE];
+
+    assert_null(job_to_str(NULL, str));
+
+    return MUNIT_OK;
+}
+
+MunitResult test_str_to_job_stack(const MunitParameter params[], 
+    void* fixture) {
+    job_t expected_job;
+    job_t job;
+        
+    for (int i = 0; i < TEST_LABELS; i++) {
+        set_test_job(&expected_job, i + 1, i, i + 1, i);
+        job_t* actual_job = str_to_job(job_strings[i], &job);
+        
+        assert_true(equal_jobs(actual_job, &expected_job));
+        assert_int(strnlen(actual_job->label, MAX_NAME_SIZE), ==, 
+            MAX_NAME_SIZE - 1);
+        assert_ptr_equal(actual_job, &job);
+    }
+    
+    return MUNIT_OK;
+}
+
+MunitResult test_str_to_job_heap(const MunitParameter params[], void* fixture) {
+    job_t expected_job;
+        
+    for (int i = 0; i < TEST_LABELS; i++) {
+        set_test_job(&expected_job, i + 1, i, i + 1, i);
+        job_t* actual_job = str_to_job(job_strings[i], NULL);
+        
+        assert_true(equal_jobs(actual_job, &expected_job));
+        assert_int(strnlen(actual_job->label, MAX_NAME_SIZE), ==, 
+            MAX_NAME_SIZE - 1);
+    }
+    
+    return MUNIT_OK;
+}
+
+MunitResult test_str_to_job_err_stack(const MunitParameter params[], 
+    void* fixture) {
+    job_t job;
+    char str[JOB_STR_SIZE + 1];
+    snprintf(str, JOB_STR_SIZE, "%s", job_strings[0]);
+    
+    str[JOB_STR_SIZE - 1] = '*';
+    str[JOB_STR_SIZE] = '\0';
+    
+    assert_int(strnlen(str, JOB_STR_SIZE), ==, JOB_STR_SIZE);
+    
+    assert_null(str_to_job(str, &job));
+
+    str[JOB_STR_SIZE - 2] = '\0';
+    assert_int(strnlen(str, JOB_STR_SIZE), ==, JOB_STR_SIZE - 2);
+    assert_null(str_to_job(str, &job));
+
+    str[0] = '\0';
+    assert_int(strnlen(str, JOB_STR_SIZE), ==, 0);
+    assert_null(str_to_job(str, &job));
+    
+    snprintf(str, JOB_STR_SIZE, "%s", 
+        "pid:0000001,id:00000,pri:00001,label:******");
+        
+    assert_null(str_to_job(str, &job));
+
+    snprintf(str, JOB_STR_SIZE, "%s", "pid:0000001,id:00000,pri:00001");
+    
+    assert_null(str_to_job(str, &job));
+
+    snprintf(str, JOB_STR_SIZE, "%s", "pid:0000001,id:00000");
+    
+    assert_null(str_to_job(str, &job));
+
+    snprintf(str, JOB_STR_SIZE, "%s", "pid:0000001");
+    
+    assert_null(str_to_job(str, &job));
+
+    snprintf(str, JOB_STR_SIZE, "%s",
+        "pid:0000002-id:00001-pri:00002-label:a******************************");
+        
+    assert_null(str_to_job(str, &job));
+    
+    return MUNIT_OK;
+}
+
+MunitResult test_str_to_job_err_heap(const MunitParameter params[], 
+    void* fixture) {
+    char str[JOB_STR_SIZE + 1];
+    snprintf(str, JOB_STR_SIZE, "%s", job_strings[0]);
+    
+    str[JOB_STR_SIZE - 1] = '*';
+    str[JOB_STR_SIZE] = '\0';
+    
+    assert_int(strnlen(str, JOB_STR_SIZE), ==, JOB_STR_SIZE);
+    
+    assert_null(str_to_job(str, NULL));
+
+    str[JOB_STR_SIZE - 2] = '\0';
+    assert_int(strnlen(str, JOB_STR_SIZE), ==, JOB_STR_SIZE - 2);
+    assert_null(str_to_job(str, NULL));
+
+    str[0] = '\0';
+    assert_int(strnlen(str, JOB_STR_SIZE), ==, 0);
+    assert_null(str_to_job(str, NULL));
+    
+    snprintf(str, JOB_STR_SIZE, "%s", 
+        "pid:0000001,id:00000,pri:00001,label:******");
+        
+    assert_null(str_to_job(str, NULL));
+
+    snprintf(str, JOB_STR_SIZE, "%s", "pid:0000001,id:00000,pri:00001");
+    
+    assert_null(str_to_job(str, NULL));
+
+    snprintf(str, JOB_STR_SIZE, "%s", "pid:0000001,id:00000");
+    
+    assert_null(str_to_job(str, NULL));
+
+    snprintf(str, JOB_STR_SIZE, "%s", "pid:0000001");
+    
+    assert_null(str_to_job(str, NULL));
+
+    snprintf(str, JOB_STR_SIZE, "%s",
+        "pid:0000002-id:00001-pri:00002-label:a******************************");
+        
+    assert_int(strnlen(str, JOB_STR_SIZE), ==, JOB_STR_SIZE -1);
+    assert_null(str_to_job(str, NULL));
+    
+    return MUNIT_OK;
+}
+
+MunitResult test_str_to_job_null(const MunitParameter params[], void* fixture) {
+    job_t job; 
+    
+    assert_null(str_to_job(NULL, &job));
+
+    return MUNIT_OK;
+}
+
 
 MunitResult test_job_delete(const MunitParameter params[], void* fixture) {
     job_t* job = (job_t*) malloc(sizeof(job_t));

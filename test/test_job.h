@@ -16,6 +16,10 @@ MunitResult test_job_copy_stack(const MunitParameter params[], void* fixture);
 MunitResult test_job_copy_heap(const MunitParameter params[], void* fixture);
 MunitResult test_job_copy_identity(const MunitParameter params[], 
     void* fixture);
+MunitResult test_job_copy_badlabel_stack(const MunitParameter params[], 
+    void* fixture);
+MunitResult test_job_copy_badlabel_heap(const MunitParameter params[], 
+    void* fixture);
 MunitResult test_job_copy_null(const MunitParameter params[], void* fixture);
 
 MunitResult test_job_init_stack(const MunitParameter params[], void* fixture);
@@ -34,6 +38,19 @@ MunitResult test_job_set_null(const MunitParameter params[], void* fixture);
 
 MunitResult test_job_to_str_stack(const MunitParameter params[], void* fixture);
 MunitResult test_job_to_str_heap(const MunitParameter params[], void* fixture);
+MunitResult test_job_to_str_err_stack(const MunitParameter params[], 
+    void* fixture);
+MunitResult test_job_to_str_err_heap(const MunitParameter params[], 
+    void* fixture);
+MunitResult test_job_to_str_null(const MunitParameter params[], void* fixture);
+
+MunitResult test_str_to_job_stack(const MunitParameter params[], void* fixture);
+MunitResult test_str_to_job_heap(const MunitParameter params[], void* fixture);
+MunitResult test_str_to_job_err_stack(const MunitParameter params[], 
+    void* fixture);
+MunitResult test_str_to_job_err_heap(const MunitParameter params[], 
+    void* fixture);
+MunitResult test_str_to_job_null(const MunitParameter params[], void* fixture);
 
 MunitResult test_job_delete(const MunitParameter params[], void* fixture);
 
@@ -51,6 +68,10 @@ static MunitTest tests[] = {
     { "/test_job_copy_heap", test_job_copy_heap, NULL, NULL,
         MUNIT_TEST_OPTION_NONE, NULL },
     { "/test_job_copy_identity", test_job_copy_identity, NULL, NULL,
+        MUNIT_TEST_OPTION_NONE, NULL },
+    { "/test_job_copy_badlabel_stack", test_job_copy_badlabel_stack, NULL, NULL,
+        MUNIT_TEST_OPTION_NONE, NULL },
+    { "/test_job_copy_badlabel_heap", test_job_copy_badlabel_heap, NULL, NULL,
         MUNIT_TEST_OPTION_NONE, NULL },
     { "/test_job_copy_null", test_job_copy_null, NULL, NULL,
         MUNIT_TEST_OPTION_NONE, NULL },
@@ -80,7 +101,24 @@ static MunitTest tests[] = {
         MUNIT_TEST_OPTION_NONE, NULL },
     { "/test_job_to_str_heap", test_job_to_str_heap, NULL, NULL,
         MUNIT_TEST_OPTION_NONE, NULL },
-        
+    { "/test_job_to_str_err_stack", test_job_to_str_err_stack, NULL, NULL,
+        MUNIT_TEST_OPTION_NONE, NULL },
+    { "/test_job_to_str_err_heap", test_job_to_str_err_heap, NULL, NULL,
+        MUNIT_TEST_OPTION_NONE, NULL },
+    { "/test_job_to_str_null", test_job_to_str_null, NULL, NULL,
+        MUNIT_TEST_OPTION_NONE, NULL },
+
+    { "/test_str_to_job_stack", test_str_to_job_stack, NULL, NULL,
+        MUNIT_TEST_OPTION_NONE, NULL },
+    { "/test_str_to_job_heap", test_str_to_job_heap, NULL, NULL,
+        MUNIT_TEST_OPTION_NONE, NULL },
+    { "/test_str_to_job_err_stack", test_str_to_job_err_stack, NULL, NULL,
+        MUNIT_TEST_OPTION_NONE, NULL },
+    { "/test_str_to_job_err_heap", test_str_to_job_err_heap, NULL, NULL,
+        MUNIT_TEST_OPTION_NONE, NULL },
+    { "/test_str_to_job_null", test_str_to_job_null, NULL, NULL,
+        MUNIT_TEST_OPTION_NONE, NULL },
+
     { "/test_job_delete", test_job_delete, NULL, NULL,
         MUNIT_TEST_OPTION_NONE, NULL },
         

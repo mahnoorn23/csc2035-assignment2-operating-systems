@@ -1,1 +1,8 @@
  cd /mnt/c/Users/mahno/CLionProjects/csc2035-assignment1-r01
+Save all, make clean and then make before you test a new file on ubuntu
+ ./bin/test/test_job - to test the individual files (replace job with file name)
+
+job.c is incomplete, str_to_job has two errors
+16/12 - both job and joblog are now complete as both libraries pass all of their tests.
+        Starting the pri_jobqueue file now. UPDATE: finally completed it
+20/12 - starting ipc now.
